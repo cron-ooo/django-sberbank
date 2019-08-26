@@ -1,3 +1,4 @@
+.idea/
 __pycache__/
 django_sberbank.egg-info/
 build/

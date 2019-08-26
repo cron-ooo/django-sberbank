@@ -1,9 +1,9 @@
 import uuid
 from enum import IntEnum
 
-from jsonfield import JSONField
 from django.db import models
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext_lazy as _
+from jsonfield import JSONField
 
 
 class Choice(IntEnum):
@@ -50,12 +50,14 @@ class Payment(models.Model):
     amount = models.DecimalField(_("amount"), max_digits=128, decimal_places=2)
     error_code = models.PositiveIntegerField(_("error code"), null=True, blank=True)
     error_message = models.TextField(_("error message"), null=True, blank=True)
-    status = models.PositiveSmallIntegerField(_("status"), choices=Status.choices(),
-        default=Status.CREATED, db_index=True)
+    status = models.PositiveSmallIntegerField(
+        _("status"), choices=Status.choices(), default=Status.CREATED, db_index=True
+    )
     details = JSONField(_("details"), blank=True, null=True)
     client_id = models.TextField(_("client ID"), null=True, blank=True)
-    method = models.PositiveSmallIntegerField(_("method"), choices=Method.choices(),
-        default=Method.UNKNOWN, db_index=True)
+    method = models.PositiveSmallIntegerField(
+        _("method"), choices=Method.choices(), default=Method.UNKNOWN, db_index=True
+    )
     created = models.DateTimeField(_("created"), auto_now_add=True, db_index=True)
     updated = models.DateTimeField(_("modified"), auto_now=True, db_index=True)
 
