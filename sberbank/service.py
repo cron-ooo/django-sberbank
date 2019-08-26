@@ -4,7 +4,7 @@ from decimal import Decimal, DecimalException
 
 import requests
 from django.conf import settings
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext as _
 
 from sberbank.exceptions import NetworkException, PaymentNotFoundException, ProcessingException
 from sberbank.models import LogEntry, Method, Payment, Status
