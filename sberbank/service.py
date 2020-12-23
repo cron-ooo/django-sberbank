@@ -225,6 +225,46 @@ class BankService(object):
     def deactivate_binding(self, binding_id):
         self.execute_request({'bindingId': binding_id}, "rest/unBindCard")
 
+    def recurrent(self, binding_id, amount, client_id, **kwargs):
+        currency = self.merchant.get('currency', self.__default_currency_code)
+        details = kwargs.get('details', {})
+        method = 'rest/recurrentPayment'
+
+        try:
+            amount = Decimal(str(amount))
+        except (ValueError, DecimalException):
+            raise TypeError(
+                "Wrong amount type, passed {} ({}) instead of decimal".format(amount, type(amount)))
+
+        payment = Payment(amount=amount, client_id=client_id, method=Method.RECURRENT, details={
+            'username': self.merchant.get("username"),
+            'currency': currency,
+            'client_id': client_id,
+            'binding_id': binding_id
+        })
+
+        payment.details.update(details)
+        payment.save()
+
+        data = {
+            'orderNumber': payment.uid.hex,
+            'amount': int(amount * 100),
+            'clientId': client_id,
+            'bindingId': binding_id
+        }
+
+        try:
+            response = self.execute_request(data, method, payment)
+        except ProcessingException as exc:
+            pass
+        else:
+            response_data = response.get('data', {})
+            payment.bank_id = response_data.get('orderId')
+            payment.status = Status.SUCCEEDED
+            payment.save()
+
+        return payment
+
     def execute_request(self, data, method, payment=None):
         rest = method.startswith("rest/")
 
@@ -285,5 +325,15 @@ class BankService(object):
                 payment.save()
             raise ProcessingException(payment.uid if payment else None, response.get('errorMessage'),
                                       response.get('errorCode'))
+
+        if 'success' in response and not response['success']:
+            err = response.get('error', {})
+            if payment:
+                payment.error_code = err.get('code')
+                payment.error_message = err.get('message')
+                payment.status = Status.FAILED
+                payment.save()
+            raise ProcessingException(payment.uid if payment else None, err.get('message'),
+                                      err.get('code'))
 
         return response

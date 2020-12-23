@@ -28,6 +28,7 @@ class Method(Choice):
     WEB = 1
     APPLE = 2
     GOOGLE = 3
+    RECURRENT = 4
 
     def __str__(self):
         return str(self.value)
