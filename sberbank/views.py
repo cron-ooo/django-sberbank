@@ -1,50 +1,55 @@
-from hashlib import sha256
 import hmac
 import json
+from hashlib import sha256
 
-from collections import OrderedDict
-
-from django.views.generic import View
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseRedirect
-
+from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from sberbank.models import Payment, LogEntry, Status
-from sberbank.service import BankService
-from sberbank.serializers import PaymentSerializer
-from braces.views import CsrfExemptMixin
+from .models import LogEntry, Payment, Status
+from .serializers import PaymentSerializer
+from .service import BankService
+
 
 class StatusView(APIView):
-    def get(self, request, uid=None):
-        try:
-            payment = Payment.objects.get(uid=uid)
-        except Payment.DoesNotExist:
-            return HttpResponse(status=404)
+    @staticmethod
+    def get(request, uid=None):
+        payment = get_object_or_404(Payment, uid=uid)
         return Response({"status": Status(payment.status).name})
 
+
 class BindingsView(APIView):
-    def get(self, request, client_id=None):
+    @staticmethod
+    def get(request, client_id=None):
         svc = BankService(settings.MERCHANT_KEY)
         return Response(svc.get_bindings(client_id))
 
-class BindingView(CsrfExemptMixin, APIView):
+
+@method_decorator(csrf_exempt, name='dispatch')
+class BindingView(APIView):
     authentication_classes = []
 
-    def delete(self, request, binding_id=None):
+    @staticmethod
+    def delete(request, binding_id=None):
         svc = BankService(settings.MERCHANT_KEY)
         svc.deactivate_binding(binding_id)
         return HttpResponse(status=200)
 
+
 class GetHistoryView(APIView):
-    def get(self, request, client_id=None, format=None):
+    @staticmethod
+    def get(request, client_id=None, format=None):
         payments = Payment.objects.filter(client_id=client_id, status=Status.SUCCEEDED).order_by('-updated')
         serializer = PaymentSerializer(payments, many=True)
         return Response(serializer.data)
 
+
 def callback(request):
-    data = OrderedDict(sorted(request.GET.items(), key=lambda x: x[0]))
+    data = dict(sorted(request.GET.items(), key=lambda x: x[0]))
 
     try:
         payment = Payment.objects.get(bank_id=data.get('mdOrder'))
@@ -64,7 +69,8 @@ def callback(request):
         checksum = hmac.new(hash_key.encode(), check_str.encode(), sha256) \
             .hexdigest().upper()
 
-        LogEntry.objects.create(action="callback",
+        LogEntry.objects.create(
+            action="callback",
             bank_id=payment.bank_id,
             payment_id=payment.uid,
             response_text=json.dumps(request.GET),
@@ -85,16 +91,15 @@ def callback(request):
 
     return HttpResponse(status=200)
 
+
 def redirect(request, kind=None):
-    try:
-        payment = Payment.objects.get(bank_id=request.GET.get('orderId'))
-    except Payment.DoesNotExist:
-        return HttpResponse(status=404)
+    payment = get_object_or_404(Payment, bank_id=request.GET.get('orderId'))
 
     svc = BankService(settings.MERCHANT_KEY)
     svc.check_status(payment.uid)
 
-    LogEntry.objects.create(action="redirect_%s" % kind,
+    LogEntry.objects.create(
+        action="redirect_%s" % kind,
         bank_id=payment.bank_id,
         payment_id=payment.uid,
         response_text=json.dumps(request.GET),
@@ -104,4 +109,3 @@ def redirect(request, kind=None):
 
     merchant = settings.MERCHANTS.get(settings.MERCHANT_KEY)
     return HttpResponseRedirect("%s?payment=%s" % (merchant["app_%s_url" % kind], payment.uid))
-

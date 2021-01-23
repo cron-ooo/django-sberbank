@@ -1,14 +1,13 @@
-FROM python:3.7
+FROM python:3.9
 
-ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=off \
+  PYTHONUNBUFFERED=1
 
 RUN pip install -U pip setuptools wheel \
-    celery==4.3.0 \
-    django-braces==1.13.0 \
-    django==2.2.4 \
-    djangorestframework==3.10.2 \
-    jsonfield==2.0.2 \
-    requests==2.22.0
+    django==2.2.17 \
+    djangorestframework==3.10.3 \
+    jsonfield==3.1.0 \
+    requests==2.25.1
 
 WORKDIR /sberbank
 

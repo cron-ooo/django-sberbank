@@ -1,6 +1,6 @@
 from django.conf.urls import url
 
-from sberbank import views
+from . import views
 
 app_name = 'sberbank'
 

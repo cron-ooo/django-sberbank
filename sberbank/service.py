@@ -6,20 +6,19 @@ import requests
 from django.conf import settings
 from django.utils.translation import gettext as _
 
-from sberbank.exceptions import NetworkException, PaymentNotFoundException, ProcessingException
-from sberbank.models import LogEntry, Method, Payment, Status
-from sberbank.util import system_name
+from .exceptions import NetworkException, PaymentNotFoundException, ProcessingException
+from .models import LogEntry, Method, Payment, Status
+from .util import system_name
 
 
-class BankService(object):
+class BankService:
     __default_session_timeout = 1200
     __default_currency_code = 643
     __default_gateway_address = 'https://3dsec.sberbank.ru/payment'
 
     def __init__(self, merchant_id):
         if getattr(settings, 'ENVIRONMENT', 'development') == 'production':
-            self.__default_gateway_address = \
-                'https://securepayments.sberbank.ru/payment'
+            self.__default_gateway_address = 'https://securepayments.sberbank.ru/payment'
         self._get_credentials(merchant_id)
         self.merchant_id = merchant_id
 
@@ -57,8 +56,7 @@ class BankService(object):
             if "signedMessage" in decoded_token:
                 method = "google/payment"
                 db_method = Method.GOOGLE
-
-        except:
+        except Exception:
             raise TypeError("Failed to decode payment token")
 
         try:
@@ -179,8 +177,7 @@ class BankService(object):
         )
 
     def check_bind_refund(self, payment):
-        if payment.details.get('bind_refund', False) and \
-            payment.status in (Status.PENDING, Status.SUCCEEDED):
+        if payment.details.get('bind_refund', False) and payment.status in (Status.PENDING, Status.SUCCEEDED):
             self.reverse(payment)
 
     def reverse(self, payment):
@@ -255,7 +252,7 @@ class BankService(object):
 
         try:
             response = self.execute_request(data, method, payment)
-        except ProcessingException as exc:
+        except ProcessingException:
             pass
         else:
             response_data = response.get('data', {})
@@ -311,7 +308,7 @@ class BankService(object):
                                       response.status_code)
         try:
             response = response.json()
-        except (ValueError, UnicodeDecodeError):
+        except ValueError:
             if payment:
                 payment.status = Status.FAILED
                 payment.save()
@@ -333,7 +330,6 @@ class BankService(object):
                 payment.error_message = err.get('message')
                 payment.status = Status.FAILED
                 payment.save()
-            raise ProcessingException(payment.uid if payment else None, err.get('message'),
-                                      err.get('code'))
+            raise ProcessingException(payment.uid if payment else None, err.get('message'), err.get('code'))
 
         return response

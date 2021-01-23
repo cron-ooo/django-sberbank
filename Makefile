@@ -5,4 +5,3 @@ dist:
 
 upload: dist
 	twine upload dist/*
-

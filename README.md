@@ -41,6 +41,16 @@ urlpatterns = [
 ```
 4. Запустить `python manage.py migrate` чтобы создать модели.
 
+## Установка окружения
+
+Переменная окружения: `ENVIRONMENT`
+
+Возможные значения:
+* `development` - https://securepayments.sberbank.ru/payment
+* `production` - https://3dsec.sberbank.ru/payment
+
+По-умолчанию: `development`
+
 ## Параметры словаря `MERCHANTS`
 * `success_url` - на данный URL Сбербанк будет перенаправлять браузер после успешного платежа
 * `fail_url` - на данный URL Сбербанк будет перенаправлять браузер после неуспешного платежа
@@ -116,7 +126,7 @@ try:
     client_id = request.data.get("client_id")
 
     # Сумма платежа в рублях
-    amounnt = 10.0
+    amount = 10.0
 
     # Токен, переданный приложением для Apple/Android
     # библиотека сама определяет тип платежа по формату
@@ -130,7 +140,7 @@ try:
 
     payment, response = svc.mobile_pay(amount, token, ip, client_id=client_id,
       params={'foo': 'bar'}, description="Оплата заказа №1234")
-    
+
     if response['success'] != True:
         return Response({"status": "error"})
     if payment.status == Status.SUCCEEDED:
@@ -150,4 +160,16 @@ try:
 except Exception as exc:
     # Что-то пошло не так
     raise
+```
+
+### Периодическая проверка платежей по которым не известно состояние
+
+```python
+from datetime import timedelta
+from celery.task import periodic_task
+from sberbank.tasks import check_payments
+
+@periodic_task(run_every=timedelta(minutes=20))
+def task_check_payments():
+    check_payments()
 ```

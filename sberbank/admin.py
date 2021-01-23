@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from sberbank.models import LogEntry, Payment
+from .models import LogEntry, Payment
 
 
 @admin.register(Payment)
